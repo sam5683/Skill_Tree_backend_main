@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+
+# Bytecode
+*.py[cod]
+
+# FastAPI / Uvicorn stuff
+*.log
+
+# Database artifacts
+*.db
+*.sqlite3
+
+# Env files
+.env
+
+# VS Code
+.vscode/
