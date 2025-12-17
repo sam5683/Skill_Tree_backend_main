@@ -1,16 +1,21 @@
 from fastapi import FastAPI
-from app.db.init_db import init_db
+from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import router as api_router
 
 app = FastAPI(title="SkillTree API", version="1.0.0")
 
-@app.on_event("startup")
-def startup_event():
-    init_db()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost",
+        "http://127.0.0.1",
+        "http://127.0.0.1:8000",
+        "file://",
+        "*",  # okay for local dev; tighten later
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# include all v1 API routes
 app.include_router(api_router, prefix="/api/v1")
-
-@app.get("/")
-def root():
-    return {"message": "SkillTree Backend is running"}
