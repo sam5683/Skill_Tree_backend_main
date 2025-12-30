@@ -16,4 +16,4 @@ SessionLocal = sessionmaker(
     future=True
 )
 
-Base = declarative_base()
+
