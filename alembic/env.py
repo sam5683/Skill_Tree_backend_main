@@ -4,8 +4,8 @@ from sqlalchemy import engine_from_config, pool
 
 
 # ⬇️ IMPORT BASE
-from app.db.session import Base
-
+from app.db.base import Base
+from app.models import note  # import module, not just class
 # ⬇️ FORCE IMPORT ALL MODELS (VERY IMPORTANT)
 from app.models import user  # import module, not just class
 

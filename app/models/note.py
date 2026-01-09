@@ -1,7 +1,7 @@
-# models/note.py
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, Text, DateTime, ForeignKey
 from sqlalchemy.sql import func
-from app.db.base import Base 
+from sqlalchemy.dialects.postgresql import ARRAY
+from app.db.base import Base
 
 class Note(Base):
     __tablename__ = "notes"
@@ -9,7 +9,11 @@ class Note(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    title = Column(String(255), nullable=False)
+    title = Column(Text, nullable=False)
     content = Column(Text, nullable=False)
 
+    summary = Column(Text, nullable=True)
+    tags = Column(ARRAY(Text), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
