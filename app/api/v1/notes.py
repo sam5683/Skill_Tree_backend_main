@@ -6,7 +6,7 @@ from app.models.note import Note
 from app.schemas.note import NoteCreate, NoteOut, NoteUpdate
 from app.core.security import get_current_user
 from app.models.user import User
-from app.core.summary import generate_summary
+from typing import Optional
 
 router = APIRouter(
     prefix="/notes",
@@ -35,7 +35,7 @@ def create_note(
         title=note.title,
         content=note.content,
         summary=summary,
-        tags=note.tags,
+        tags=[t.strip().lower() for t in note.tags] if note.tags else None,
         user_id=current_user.id,
     )
 
@@ -45,18 +45,37 @@ def create_note(
     return new_note
 
 # -------------------- LIST --------------------
+
 @router.get("", response_model=list[NoteOut])
 def get_notes(
+    search: Optional[str] = None,
+    tag: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return (
-        db.query(Note)
-        .filter(Note.user_id == current_user.id)
+    query = db.query(Note).filter(Note.user_id == current_user.id)
+
+    if search:
+        query = query.filter(Note.title.ilike(f"%{search}%"))
+
+    if tag:
+        tags = [t.strip().lower() for t in tag.split(",")]
+
+        query = query.filter(
+        Note.tags.overlap(tags)
+        )
+
+    notes = (
+        query
         .order_by(Note.created_at.desc())
+        .limit(limit)
+        .offset(offset)
         .all()
     )
 
+    return notes
 # -------------------- DETAIL --------------------
 @router.get("/{note_id}", response_model=NoteOut)
 def get_note(
@@ -108,7 +127,7 @@ def update_note(
         note.summary = note_update.summary
 
     if note_update.tags is not None:
-        note.tags = note_update.tags
+        note.tags = [t.strip().lower() for t in note_update.tags]
 
     db.commit()
     db.refresh(note)

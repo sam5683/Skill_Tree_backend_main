@@ -4,10 +4,10 @@ from app.api.v1 import router as api_router
 from app.db.session import engine
 from app.db.base import Base
 
-# 🔥 FORCE MODEL REGISTRATION
+#  FORCE MODEL REGISTRATION
 from app.models import user, note
 
-print("🚀 SkillTree API main.py loaded")
+print(" SkillTree API main.py loaded")
 
 app = FastAPI(title="SkillTree API", version="1.0.0")
 
