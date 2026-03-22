@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import or_   # ✅ ADDED
 from app.core.summary import generate_summary
 from app.db.session import SessionLocal
 from app.models.note import Note
@@ -57,14 +58,24 @@ def get_notes(
 ):
     query = db.query(Note).filter(Note.user_id == current_user.id)
 
+    # ✅ FIXED SEARCH (title + content + summary)
     if search:
-        query = query.filter(Note.title.ilike(f"%{search}%"))
+       search = search.strip().lower()
 
+       query = query.filter(
+            or_(
+                Note.title.ilike(f"%{search}%"),
+                Note.content.ilike(f"%{search}%"),
+                Note.summary.ilike(f"%{search}%"),
+            )
+       )
+
+    # TAG FILTER (unchanged but correct)
     if tag:
         tags = [t.strip().lower() for t in tag.split(",")]
 
         query = query.filter(
-        Note.tags.overlap(tags)
+            Note.tags.overlap(tags)
         )
 
     notes = (
@@ -76,6 +87,7 @@ def get_notes(
     )
 
     return notes
+
 # -------------------- DETAIL --------------------
 @router.get("/{note_id}", response_model=NoteOut)
 def get_note(
@@ -119,7 +131,6 @@ def update_note(
 
     if note_update.content is not None:
         note.content = note_update.content
-        # regenerate ONLY if user didn't supply summary
         if note_update.summary is None:
             note.summary = generate_summary(note_update.content)
 
@@ -179,4 +190,3 @@ def regenerate_summary(
     db.commit()
     db.refresh(note)
     return note
-
