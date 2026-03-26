@@ -1,12 +1,13 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
+from app.db.base import Base
 
 DATABASE_URL = "postgresql://postgres:sam12345@localhost:5432/skilltree"
 
 engine = create_engine(
     DATABASE_URL,
     future=True,
-    echo=False  # change to True for SQL logging
+    echo=False
 )
 
 SessionLocal = sessionmaker(
@@ -16,4 +17,10 @@ SessionLocal = sessionmaker(
     future=True
 )
 
-
+# Dependency for FastAPI
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.api.v1 import router as api_router
 from app.db.session import engine
 from app.db.base import Base
 
-#  FORCE MODEL REGISTRATION
-from app.models import user, note
+# Register models so Alembic sees them
+from app.models import user, note, flashcard
 
-print(" SkillTree API main.py loaded")
+print("SkillTree API main.py loaded")
 
 app = FastAPI(title="SkillTree API", version="1.0.0")
 
@@ -22,6 +23,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Create tables
 Base.metadata.create_all(bind=engine)
 
+# Include API routers
 app.include_router(api_router, prefix="/api/v1")
