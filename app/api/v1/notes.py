@@ -8,7 +8,7 @@ from app.schemas.note import NoteCreate, NoteOut, NoteUpdate
 from app.core.security import get_current_user
 from app.models.user import User
 from typing import Optional
-
+from datetime import datetime
 router = APIRouter(
     prefix="/notes",
     tags=["notes"]
@@ -186,6 +186,7 @@ def regenerate_summary(
         raise HTTPException(status_code=404, detail="Note not found")
 
     note.summary = generate_summary(note.content)
+    note.updated_at = datetime.utcnow() 
 
     db.commit()
     db.refresh(note)
