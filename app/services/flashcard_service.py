@@ -7,121 +7,211 @@ from app.models.note import Note
 from app.services.srs_service import update_srs
 
 
-# --------------------------------------------------
-# Clean text
-# --------------------------------------------------
-def clean_text(text: str):
-    text = text.strip()
-    text = re.sub(r'\s+', ' ', text)
-    return text
+MAX_CARDS = 12
+MIN_LEN = 20
 
 
 # --------------------------------------------------
-# Detect Q&A pairs (numbered questions etc.)
+# CLEAN / NORMALIZE
 # --------------------------------------------------
-def extract_qa_pairs(text: str):
-    lines = text.split("\n")
-    pairs = []
+def normalize_line(line: str):
+    line = line.strip()
 
-    current_question = None
-    current_answer = []
+    # remove numbering: "1. ", "2. "
+    line = re.sub(r"^\d+\.\s*", "", line)
 
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
+    # remove labels like "High Performance:"
+    line = re.sub(r"^[A-Za-z\s]+:\s*", "", line)
 
-        # Detect numbered question: 1. Question?
-        if re.match(r'^\d+\.', line) or line.endswith("?"):
-            if current_question and current_answer:
-                pairs.append((current_question, " ".join(current_answer)))
-                current_answer = []
+    # fix spacing
+    line = re.sub(r"\s+", " ", line)
 
-            # Remove numbering
-            line = re.sub(r'^\d+\.\s*', '', line)
-            current_question = line
+    return line
 
-        else:
-            if current_question:
-                current_answer.append(line)
 
-    if current_question and current_answer:
-        pairs.append((current_question, " ".join(current_answer)))
+def is_valid(line: str):
+    if len(line) < MIN_LEN:
+        return False
 
-    return pairs
+    # reject weak sentence starts
+    if line.lower().startswith(("this", "that", "it", "there")):
+        return False
+
+    # reject code-like lines
+    if any(x in line for x in ["(", ")", "=", "import", "print", "def ", "class "]):
+        return False
+
+    # reject fragments (not proper sentence)
+    if not line[0].isupper():
+        return False
+
+    return True
 
 
 # --------------------------------------------------
-# Definition-based flashcards
+# 1. QUESTIONS
 # --------------------------------------------------
-def extract_definition_cards(text: str):
-    sentences = re.split(r'[.\n]', text)
+def extract_questions(lines):
     cards = []
 
-    for sentence in sentences:
-        sentence = clean_text(sentence)
-        if len(sentence) < 20:
+    for i, raw in enumerate(lines):
+        line = normalize_line(raw)
+
+        if not line.endswith("?"):
             continue
 
-        lower = sentence.lower()
+        if not is_valid(line):
+            continue
 
-        if " is " in lower:
-            parts = sentence.split(" is ", 1)
-            q = f"What is {parts[0].strip()}?"
-            a = parts[1].strip()
-            cards.append((q, a))
+        answer = ""
+        for j in range(i + 1, len(lines)):
+            next_line = normalize_line(lines[j])
+            if next_line:
+                answer = next_line
+                break
 
-        elif " are " in lower:
-            parts = sentence.split(" are ", 1)
-            q = f"What are {parts[0].strip()}?"
-            a = parts[1].strip()
-            cards.append((q, a))
-
-        elif " used for " in lower:
-            parts = sentence.split(" used for ", 1)
-            q = f"What is {parts[0].strip()} used for?"
-            a = parts[1].strip()
-            cards.append((q, a))
+        if answer and len(answer) > 10:
+            cards.append((line, answer))
 
     return cards
 
 
 # --------------------------------------------------
-# Bullet list flashcards
+# 2. DEFINITIONS (X is Y)
 # --------------------------------------------------
-def extract_bullet_cards(text: str):
-    lines = text.split("\n")
+def extract_definitions(lines):
     cards = []
 
-    topic = None
-    bullets = []
+    for raw in lines:
+        line = normalize_line(raw)
 
-    for line in lines:
-        line = line.strip()
-
-        if not line:
+        if not is_valid(line):
             continue
 
-        if line.startswith("-") or line.startswith("•") or line.startswith("*"):
-            bullets.append(line[1:].strip())
+        match = re.match(r"(.+?)\s+(is|are)\s+(.+)", line, re.IGNORECASE)
+        if not match:
+            continue
 
-        else:
-            if bullets and topic:
-                cards.append(
-                    (f"List items for {topic}", ", ".join(bullets))
-                )
-                bullets = []
+        subject = match.group(1).strip()
+        value = match.group(3).strip()
 
-            topic = line
+        # reject weak subjects
+        if len(subject.split()) > 6:
+            continue
 
-    if bullets and topic:
-        cards.append((f"List items for {topic}", ", ".join(bullets)))
+        if subject.lower().startswith(("what", "how", "why")):
+            continue
+
+        if subject.lower().startswith(("ensures", "provides", "handles")):
+            continue
+
+        if subject.lower().startswith(("in short", "overall", "basically")):
+            continue
+
+        if len(value) < 10:
+            continue
+
+        q = f"What is {subject}?"
+        a = value
+
+        cards.append((q, a))
 
     return cards
 
 
 # --------------------------------------------------
-# Create flashcards from note
+# 3. LABEL: DESCRIPTION
+# --------------------------------------------------
+def extract_labeled(lines):
+    cards = []
+
+    for raw in lines:
+        if ":" not in raw:
+            continue
+
+        parts = raw.split(":", 1)
+
+        title = parts[0].strip()
+        desc = normalize_line(parts[1])
+
+        if len(title) < 3 or len(desc) < 10:
+            continue
+
+        if title.lower().startswith(("this", "it", "there")):
+            continue
+
+        if any(x in desc for x in ["(", ")", "=", "import", "print"]):
+            continue
+
+        q = f"What is {title}?"
+        a = desc
+
+        cards.append((q, a))
+
+    return cards
+
+
+# --------------------------------------------------
+# 4. SENTENCE EXTRACTION (controlled)
+# --------------------------------------------------
+def extract_sentences(lines):
+    cards = []
+
+    verbs = (
+        "ensures", "provides", "allows",
+        "handles", "manages", "improves",
+        "supports", "reduces", "increases"
+    )
+
+    for raw in lines:
+        line = normalize_line(raw)
+
+        if not is_valid(line):
+            continue
+
+        if " is " in line.lower():
+            continue
+
+        words = line.split()
+        if len(words) < 6:
+            continue
+
+        for v in verbs:
+            if v in line.lower():
+                subject = " ".join(words[:3])
+                rest = line.split(v, 1)[-1].strip()
+
+                if len(rest) < 8:
+                    continue
+
+                q = f"What does {subject} {v}?"
+                a = rest
+
+                cards.append((q, a))
+                break
+
+    return cards
+
+
+# --------------------------------------------------
+# DEDUP
+# --------------------------------------------------
+def deduplicate(cards):
+    seen_q = set()
+    result = []
+
+    for q, a in cards:
+        key = re.sub(r'\W+', '', q.lower())
+
+        if key not in seen_q:
+            seen_q.add(key)
+            result.append((q, a))
+
+    return result
+
+
+# --------------------------------------------------
+# MAIN
 # --------------------------------------------------
 def create_flashcards_from_note(db: Session, note_id: int, user_id: int):
     note = db.query(Note).filter(
@@ -132,31 +222,30 @@ def create_flashcards_from_note(db: Session, note_id: int, user_id: int):
     if not note:
         return None
 
-    text = note.content
+    raw_lines = [l for l in note.content.split("\n") if l.strip()]
 
-    # Delete old flashcards
     db.query(Flashcard).filter(
         Flashcard.note_id == note_id
     ).delete()
 
-    cards_data = []
+    cards = []
 
-    # Extract different types
-    cards_data += extract_qa_pairs(text)
-    cards_data += extract_definition_cards(text)
-    cards_data += extract_bullet_cards(text)
+    cards += extract_questions(raw_lines)
+    cards += extract_definitions(raw_lines)
+    cards += extract_labeled(raw_lines)
+    cards += extract_sentences(raw_lines)
 
-    # Limit cards
-    cards_data = cards_data[:20]
+    cards = deduplicate(cards)
+    cards = cards[:MAX_CARDS]
 
     flashcards = []
 
-    for question, answer in cards_data:
+    for q, a in cards:
         card = Flashcard(
             note_id=note_id,
             user_id=user_id,
-            question=question,
-            answer=answer,
+            question=q,
+            answer=a,
             ease_factor=2.5,
             interval=1,
             repetitions=0,
@@ -172,7 +261,7 @@ def create_flashcards_from_note(db: Session, note_id: int, user_id: int):
 
 
 # --------------------------------------------------
-# Delete ALL flashcards
+# OTHER
 # --------------------------------------------------
 def delete_all_flashcards(db: Session, user_id: int):
     db.query(Flashcard).filter(
@@ -181,23 +270,13 @@ def delete_all_flashcards(db: Session, user_id: int):
     db.commit()
 
 
-# --------------------------------------------------
-# Get due flashcards
-# --------------------------------------------------
 def get_due_flashcards(db: Session, user_id: int):
-    today = datetime.utcnow()
-
-    cards = db.query(Flashcard).filter(
+    return db.query(Flashcard).filter(
         Flashcard.user_id == user_id,
-        Flashcard.due_date <= today
+        Flashcard.due_date <= datetime.utcnow()
     ).limit(50).all()
 
-    return cards
 
-
-# --------------------------------------------------
-# Review flashcard
-# --------------------------------------------------
 def review_flashcard(db: Session, card_id: int, rating: str, user_id: int):
     card = db.query(Flashcard).filter(
         Flashcard.id == card_id,
@@ -215,13 +294,8 @@ def review_flashcard(db: Session, card_id: int, rating: str, user_id: int):
     return card
 
 
-# --------------------------------------------------
-# Get flashcards for note
-# --------------------------------------------------
 def get_flashcards_for_note(db: Session, note_id: int, user_id: int):
-    cards = db.query(Flashcard).filter(
+    return db.query(Flashcard).filter(
         Flashcard.note_id == note_id,
         Flashcard.user_id == user_id
     ).all()
-
-    return cards
