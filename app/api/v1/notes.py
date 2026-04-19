@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_   # ✅ ADDED
-from app.core.summary import generate_summary
+from app.services.ai_service import generate_summary
 from app.db.session import SessionLocal
 from app.models.note import Note
 from app.schemas.note import NoteCreate, NoteOut, NoteUpdate
@@ -9,6 +9,12 @@ from app.core.security import get_current_user
 from app.models.user import User
 from typing import Optional
 from datetime import datetime
+from fastapi import UploadFile, File
+from app.services.ocr_service import extract_text_from_image
+from app.services.ai_service import improve_note_content
+
+
+
 router = APIRouter(
     prefix="/notes",
     tags=["notes"]
@@ -30,7 +36,7 @@ def create_note(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    summary = note.summary or generate_summary(note.content)
+    summary = note.summary or ""
 
     new_note = Note(
         title=note.title,
@@ -186,8 +192,34 @@ def regenerate_summary(
         raise HTTPException(status_code=404, detail="Note not found")
 
     note.summary = generate_summary(note.content)
-    note.updated_at = datetime.utcnow() 
 
     db.commit()
     db.refresh(note)
     return note
+
+
+#-------------------------------------- OCR UPLOAD --------------------------------------
+@router.post("/ocr")
+async def ocr_note(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user) 
+):
+    text = await extract_text_from_image(file)
+
+    return {
+        "extracted_text": text
+    }
+#-------------------------------------- improve notes using ai ---------------------------------------
+@router.post("/improve")
+async def improve_note(
+    data: dict,
+    current_user: User = Depends(get_current_user)   # ✅ MUST be in params
+):
+    content = data.get("content")
+
+    if not content:
+        return {"improved_content": ""}
+
+    improved = improve_note_content(content)
+
+    return {"improved_content": improved}
