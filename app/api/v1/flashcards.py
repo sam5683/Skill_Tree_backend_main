@@ -49,7 +49,7 @@ def get_due_cards(
 
 
 # ----------------------------------------------------
-# Review flashcard
+# Review flashcard (UPDATED)
 # POST /flashcards/review/{card_id}
 # ----------------------------------------------------
 @router.post("/review/{card_id}")
@@ -64,9 +64,11 @@ def review_card(
     if not card:
         raise HTTPException(status_code=404, detail="Flashcard not found")
 
-    return {"message": "Flashcard reviewed successfully"}
-
-
+    return {
+        "interval": card.interval,
+        "ease_factor": card.ease_factor,
+        "repetitions": card.repetitions
+    }
 # ----------------------------------------------------
 # Get flashcards for a specific note
 # GET /flashcards/note/{note_id}

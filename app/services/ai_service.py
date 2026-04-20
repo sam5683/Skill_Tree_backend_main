@@ -61,45 +61,82 @@ def call_llm(prompt: str) -> str:
 
 
 # -----------------------------
-# Improve Note (🔥 FIXED)
+# Improve Note (SMART STRUCTURE)
 # -----------------------------
 def improve_note_content(content: str) -> str:
 
-    # 🔥 IMPORTANT: prevent repeated degradation
+    # 🔥 Keep your guard
     if is_structured(content):
         return content
 
     prompt = f"""
-You are a strict note cleaner.
+You are a precise note optimizer.
 
-Your task is NOT to rewrite or restructure the note.
+Your goal is to CLEAN and STRUCTURE raw notes
+WITHOUT changing meaning or harming good content.
 
-You must PRESERVE the exact structure.
+Think in 2 layers:
+1. PRESERVE what is already good
+2. FIX only what is messy or unclear
 
-STRICT RULES:
-- Do NOT add headings or subheadings
-- Do NOT remove headings
-- Do NOT change paragraph order
-- Do NOT convert text into markdown
-- Do NOT summarize or shorten
-- Do NOT reformat lists or sections
+-----------------------
+STRICT RULES (CRITICAL)
+-----------------------
+- NEVER change meaning
+- NEVER rewrite correct definitions
+- NEVER remove useful information
+- NEVER reorder logical sections
+- NEVER modify already structured parts
 
-ONLY DO:
-- Fix grammar mistakes
+-----------------------
+DO NOT TOUCH IF ALREADY GOOD:
+-----------------------
+- Proper definitions
+- Existing bullet points
+- Already formatted sections (**bold**, *, -)
+- Clean paragraphs
+
+-----------------------
+YOU MAY IMPROVE ONLY IF NEEDED:
+-----------------------
+- Fix grammar and broken sentences
+- Remove duplicate lines
+- Remove incomplete or meaningless fragments
 - Fix spacing and line breaks
-- Remove duplicate or broken lines
 
-STRUCTURE LOCK:
-If the note already looks structured and readable, return it unchanged.
+-----------------------
+SMART STRUCTURING (ONLY FOR RAW TEXT):
+-----------------------
+If a section is messy or unstructured:
+- Convert into clean bullet points when appropriate
+- Group related ideas together
+- Add light emphasis using **bold** ONLY for key terms
+- Break long paragraphs into readable chunks
 
-Return ONLY the cleaned note.
+-----------------------
+IMPORTANT BEHAVIOR:
+-----------------------
+- Work LOCALLY (line by line), not globally
+- If content is already clean → leave it EXACTLY as is
+- If partially messy → fix ONLY those parts
+- Output must look natural, not AI-generated
 
-Note:
+-----------------------
+IDEMPOTENT RULE:
+-----------------------
+If this prompt is applied again, the output should NOT change.
+
+-----------------------
+OUTPUT:
+-----------------------
+Return ONLY the improved note. No explanation.
+
+-----------------------
+NOTE:
 {content}
 """
 
     return call_llm(prompt)
-
 
 # -----------------------------
 # Generate Summary
