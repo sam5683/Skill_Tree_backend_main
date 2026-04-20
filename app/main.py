@@ -8,8 +8,6 @@ from app.db.base import Base
 # Register models so Alembic sees them
 from app.models import user, note, flashcard
 
-print("SkillTree API main.py loaded")
-
 app = FastAPI(title="SkillTree API", version="1.0.0")
 
 app.add_middleware(

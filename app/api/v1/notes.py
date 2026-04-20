@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_   # ✅ ADDED
 from app.services.ai_service import generate_summary
-from app.db.session import SessionLocal
+from app.db.session import get_db
 from app.models.note import Note
 from app.schemas.note import NoteCreate, NoteOut, NoteUpdate
 from app.core.security import get_current_user
@@ -19,14 +19,6 @@ router = APIRouter(
     prefix="/notes",
     tags=["notes"]
 )
-
-# -------------------- DB DEPENDENCY --------------------
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # -------------------- CREATE --------------------
 

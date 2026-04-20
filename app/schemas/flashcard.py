@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Literal
 
 
 class FlashcardBase(BaseModel):
@@ -16,5 +17,5 @@ class FlashcardResponse(FlashcardBase):
 
 
 class FlashcardReview(BaseModel):
-    rating: str
+    rating: Literal["again", "hard", "good", "easy"]
     

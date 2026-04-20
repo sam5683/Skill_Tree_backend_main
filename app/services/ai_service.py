@@ -49,8 +49,6 @@ def call_llm(prompt: str) -> str:
 
     response = requests.post(GROQ_URL, headers=headers, json=data)
 
-    print("GROQ STATUS:", response.status_code)
-    print("GROQ RESPONSE:", response.text)
 
     if response.status_code != 200:
         raise Exception(response.text)

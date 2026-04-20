@@ -1,11 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.db.base import Base
-
-DATABASE_URL = "postgresql://postgres:sam12345@localhost:5432/skilltree"
+from app.core.config import settings
 
 engine = create_engine(
-    DATABASE_URL,
+    settings.DATABASE_URL,
     future=True,
     echo=False
 )

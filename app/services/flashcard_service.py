@@ -309,7 +309,8 @@ def create_flashcards_from_note(db: Session, note_id: int, user_id: int):
 
     # delete old
     db.query(Flashcard).filter(
-        Flashcard.note_id == note_id
+        Flashcard.note_id == note_id,
+        Flashcard.user_id == user_id
     ).delete()
 
     # extraction
