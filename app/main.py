@@ -22,7 +22,10 @@ app.add_middleware(
 )
 
 # Create tables
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print("DB connection failed:", e)
 
 # Include API routers
 app.include_router(api_router, prefix="/api/v1")
