@@ -1,12 +1,13 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
+from pydantic import Field
 
 class NoteCreate(BaseModel):
-    title: str
-    content: str
+    title: str = Field(max_length=255)
+    content: str = Field(max_length=100000)
     summary: Optional[str] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[List[str]] = Field(default=None, max_items=20)
 
 
 class NoteUpdate(BaseModel):

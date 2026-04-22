@@ -1,5 +1,8 @@
 import requests
+import logging
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 GROQ_API_KEY = settings.GROQ_API_KEY
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -31,7 +34,8 @@ def is_structured(content: str) -> bool:
 # -----------------------------
 def call_llm(prompt: str) -> str:
     if not GROQ_API_KEY:
-        raise Exception("GROQ_API_KEY not set")
+        logger.error("GROQ_API_KEY not set")
+        return None
 
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -47,15 +51,19 @@ def call_llm(prompt: str) -> str:
         "temperature": 0.3
     }
 
-    response = requests.post(GROQ_URL, headers=headers, json=data)
+    try:
+        response = requests.post(GROQ_URL, headers=headers, json=data, timeout=5)
 
+        if response.status_code != 200:
+            logger.error(f"GROQ failed: {response.status_code} - {response.text}")
+            return None
 
-    if response.status_code != 200:
-        raise Exception(response.text)
+        result = response.json()
+        return result["choices"][0]["message"]["content"]
 
-    result = response.json()
-
-    return result["choices"][0]["message"]["content"]
+    except requests.RequestException as e:
+        logger.error(f"GROQ request error: {str(e)}")
+        return None
 
 
 # -----------------------------
@@ -134,7 +142,8 @@ NOTE:
 {content}
 """
 
-    return call_llm(prompt)
+    result = call_llm(prompt)
+    return result if result else content
 
 # -----------------------------
 # Generate Summary
@@ -157,4 +166,5 @@ Rules:
 Note:
 {content}
 """
-    return call_llm(prompt)
+    result = call_llm(prompt)
+    return result if result else ""
