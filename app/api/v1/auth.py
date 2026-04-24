@@ -23,18 +23,13 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    print("EMAIL INPUT:", form_data.username)
-    print("PASSWORD INPUT:", form_data.password)
-
-    user = authenticate(db, form_data.username, form_data.password)
-
-    print("USER FOUND:", user)
+    user = authenticate(db, form_data.username)
 
     if not user:
-       raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail="User not found")
 
     if not verify_password(form_data.password, user.hashed_password):
-       raise HTTPException(status_code=401, detail="Wrong password")
+        raise HTTPException(status_code=401, detail="Wrong password")
 
     token = create_access_token({"sub": str(user.id)})
 
