@@ -51,8 +51,12 @@ async def extract_text_from_image(file: UploadFile) -> str:
         if not clean_text:
             raise HTTPException(status_code=400, detail="No text detected")
 
+        
+        if len(clean_text) < 5:
+            raise HTTPException(status_code=400, detail="Text extraction failed")
+        
         return clean_text
-
+    
     except HTTPException:
         raise
 
