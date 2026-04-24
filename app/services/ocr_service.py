@@ -2,7 +2,7 @@ import pytesseract
 from PIL import Image
 from fastapi import UploadFile
 import io
-
+from fastapi import HTTPException
 
 async def extract_text_from_image(file: UploadFile) -> str:
     try:
@@ -19,4 +19,5 @@ async def extract_text_from_image(file: UploadFile) -> str:
         return clean_text
 
     except Exception as e:
-        raise Exception(f"OCR processing failed: {str(e)}")
+        print("OCR ERROR:", str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))

@@ -27,6 +27,10 @@ def login(
 
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    
+    print("INPUT PASSWORD:", form_data.password)
+    print("HASHED PASSWORD:", user.hashed_password)
+    print("VERIFY RESULT:", verify_password(form_data.password, user.hashed_password))
 
     if not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Wrong password")
