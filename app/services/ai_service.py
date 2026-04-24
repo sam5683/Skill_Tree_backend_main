@@ -78,12 +78,27 @@ def improve_note_content(content: str) -> str:
     prompt = f"""
 You are a precise note optimizer.
 
-Your goal is to CLEAN and STRUCTURE raw notes
-WITHOUT changing meaning or harming good content.
+Your goal is to CLEAN notes ONLY IF they are messy or unclear.
+DO NOT restructure content that is already readable.
+DO NOT change meaning or harm good content.
 
 Think in 2 layers:
 1. PRESERVE what is already good
 2. FIX only what is messy or unclear
+
+-----------------------
+CRITICAL DECISION STEP
+-----------------------
+Before making ANY change:
+
+Ask:
+Is this note already readable and meaningful?
+
+If YES:
+→ Return it unchanged (except minor grammar fixes)
+
+If NO:
+→ Apply improvements carefully, but do NOT change meaning.
 
 -----------------------
 STRICT RULES (CRITICAL)

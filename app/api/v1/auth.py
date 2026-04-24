@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.db.session import get_db
 from app.schemas.user import UserCreate, UserResponse
 from app.services.auth_service import create_user, authenticate
-from app.core.security import create_access_token
+from app.core.security import create_access_token, verify_password
 
 router = APIRouter()
 
@@ -31,7 +31,10 @@ def login(
     print("USER FOUND:", user)
 
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+       raise HTTPException(status_code=401, detail="User not found")
+
+    if not verify_password(form_data.password, user.hashed_password):
+       raise HTTPException(status_code=401, detail="Wrong password")
 
     token = create_access_token({"sub": str(user.id)})
 
