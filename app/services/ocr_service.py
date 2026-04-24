@@ -3,6 +3,7 @@ from PIL import Image
 from fastapi import UploadFile
 import io
 from fastapi import HTTPException
+pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 
 async def extract_text_from_image(file: UploadFile) -> str:
     try:
