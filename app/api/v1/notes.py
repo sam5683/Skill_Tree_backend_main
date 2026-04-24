@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import or_   # ✅ ADDED
+from sqlalchemy import or_   
 from app.services.ai_service import generate_summary
 from app.db.session import get_db
 from app.models.note import Note
@@ -12,7 +12,7 @@ from datetime import datetime
 from fastapi import UploadFile, File
 from app.services.ocr_service import extract_text_from_image
 from app.services.ai_service import improve_note_content
-
+from fastapi import BackgroundTasks
 
 
 router = APIRouter(
@@ -194,14 +194,14 @@ def regenerate_summary(
 @router.post("/ocr")
 async def ocr_note(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user) 
+    current_user: User = Depends(get_current_user)
 ):
     text = await extract_text_from_image(file)
 
     return {
         "extracted_text": text
     }
-#-------------------------------------- improve notes using ai ---------------------------------------
+#--------------------------------- improve notes using ai ---------------------------------------
 @router.post("/improve")
 async def improve_note(
     data: dict,
@@ -215,3 +215,4 @@ async def improve_note(
     improved = improve_note_content(content)
 
     return {"improved_content": improved}
+

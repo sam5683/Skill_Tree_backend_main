@@ -10,6 +10,10 @@ from app.models import user, note, flashcard
 
 app = FastAPI(title="SkillTree API", version="1.0.0")
 
+@app.get("/")
+def root():
+    return {"message": "API running"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
