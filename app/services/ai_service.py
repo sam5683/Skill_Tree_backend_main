@@ -71,6 +71,9 @@ def call_llm(prompt: str) -> str:
 # -----------------------------
 def improve_note_content(content: str) -> str:
 
+    if not content or len(content.strip()) < 20:
+        return content
+
     # 🔥 Keep your guard
     if is_structured(content):
         return content
@@ -181,6 +184,10 @@ NOTE:
 # Generate Summary
 # -----------------------------
 def generate_summary(content: str) -> str:
+
+    if not content or len(content.strip()) < 20:
+        return ""
+    
     prompt = f"""
 You are a high-precision summarization system.
 
