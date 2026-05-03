@@ -76,82 +76,99 @@ def improve_note_content(content: str) -> str:
         return content
 
     prompt = f"""
-You are a precise note optimizer.
+You are a high-precision note reconstruction system.
 
-Your goal is to CLEAN notes ONLY IF they are messy or unclear.
-DO NOT restructure content that is already readable.
-DO NOT change meaning or harm good content.
+Your goal is NOT just editing.
+Your goal is to:
+1. CLEAN noise
+2. PRESERVE meaning
+3. STRUCTURE content
+4. RECONSTRUCT only when safe
 
-Think in 2 layers:
-1. PRESERVE what is already good
-2. FIX only what is messy or unclear
+----------------------------------
+STEP 1: CLASSIFY EACH LINE
+----------------------------------
+For every line, classify:
 
------------------------
-CRITICAL DECISION STEP
------------------------
-Before making ANY change:
+- SIGNAL → meaningful content
+- NOISE → OCR junk, UI text, broken fragments
 
-Ask:
-Is this note already readable and meaningful?
+NOISE examples:
+- website headers/footers
+- random symbols or broken words
+- navigation text (BLOG | ABOUT | etc.)
+- repeated garbage fragments
+- incomplete unreadable tokens
 
-If YES:
-→ Return it unchanged (except minor grammar fixes)
+REMOVE noise aggressively.
 
-If NO:
-→ Apply improvements carefully, but do NOT change meaning.
+----------------------------------
+STEP 2: PRESERVE USER INTENT
+----------------------------------
+- If content is already clear → KEEP it
+- If user wrote personal notes → DO NOT rewrite tone
+- Do NOT over-formalize human writing
 
------------------------
-STRICT RULES (CRITICAL)
------------------------
+----------------------------------
+STEP 3: SMART RECONSTRUCTION (CRITICAL)
+----------------------------------
+You MAY reconstruct missing or broken parts ONLY IF:
+
+✔ Context is clear
+✔ Meaning is obvious
+✔ Confidence is HIGH
+
+Examples:
+- "Avoidant Atta" → "Avoidant Attachment Style" ✅
+- Broken sentence → fix grammar ✅
+
+If uncertain:
+→ KEEP original text
+
+NEVER invent facts.
+
+----------------------------------
+STEP 4: STRUCTURE OUTPUT
+----------------------------------
+Convert into clean readable format:
+
+- Add headings when obvious
+- Use bullet points for lists
+- Break long paragraphs
+- Group related ideas
+
+DO NOT over-structure.
+
+----------------------------------
+STEP 5: STRICT RULES
+----------------------------------
 - NEVER change meaning
-- NEVER rewrite correct definitions
-- NEVER remove useful information
-- NEVER reorder logical sections
-- NEVER modify already structured parts
+- NEVER add new concepts
+- NEVER hallucinate missing info
+- REMOVE only clear noise
+- KEEP valuable imperfect content
 
------------------------
-DO NOT TOUCH IF ALREADY GOOD:
------------------------
-- Proper definitions
-- Existing bullet points
-- Already formatted sections (**bold**, *, -)
-- Clean paragraphs
+----------------------------------
+STEP 6: OUTPUT STYLE
+----------------------------------
+- Clean
+- Human-like
+- Readable
+- Structured
+- Not robotic
 
------------------------
-YOU MAY IMPROVE ONLY IF NEEDED:
------------------------
-- Fix grammar and broken sentences
-- Remove duplicate lines
-- Remove incomplete or meaningless fragments
-- Fix spacing and line breaks
+----------------------------------
+STEP 7: IDEMPOTENT
+----------------------------------
+Running this again should NOT change output.
 
------------------------
-SMART STRUCTURING (ONLY FOR RAW TEXT):
------------------------
-If a section is messy or unstructured:
-- Convert into clean bullet points when appropriate
-- Group related ideas together
-- Add light emphasis using **bold** ONLY for key terms
-- Break long paragraphs into readable chunks
+----------------------------------
+INPUT:
+{content}
 
------------------------
-IMPORTANT BEHAVIOR:
------------------------
-- Work LOCALLY (line by line), not globally
-- If content is already clean → leave it EXACTLY as is
-- If partially messy → fix ONLY those parts
-- Output must look natural, not AI-generated
-
------------------------
-IDEMPOTENT RULE:
------------------------
-If this prompt is applied again, the output should NOT change.
-
------------------------
+----------------------------------
 OUTPUT:
------------------------
-Return ONLY the improved note. No explanation.
-
+Return ONLY the cleaned and structured note.
 -----------------------
 NOTE:
 {content}
@@ -165,21 +182,48 @@ NOTE:
 # -----------------------------
 def generate_summary(content: str) -> str:
     prompt = f"""
-You are a precise study assistant.
+You are a high-precision summarization system.
 
-Task:
-Summarize the note in 2–3 clean sentences.
+Your goal is to extract the CORE meaning of the note.
 
-Rules:
-- DO NOT say "Here is a summary"
-- DO NOT use labels like "Topic" or "Key Idea"
-- Write naturally like a human explanation
-- Keep it short and clear
-- No bullet points
-- No formatting symbols
+----------------------------------
+OUTPUT REQUIREMENTS
+----------------------------------
+- Maximum 2 lines (prefer 1 line if possible)
+- No fluff, no filler words
+- No meta phrases ("This note explains...")
+- No labels or formatting
+- Must be clear and meaningful on its own
 
-Note:
+----------------------------------
+HOW TO THINK
+----------------------------------
+1. Identify the main topic
+2. Identify the key idea or takeaway
+3. Ignore examples, noise, and repetition
+
+----------------------------------
+STRICT RULES
+----------------------------------
+- DO NOT repeat sentences from input
+- DO NOT list points
+- DO NOT generalize vaguely
+- DO NOT hallucinate missing info
+
+----------------------------------
+QUALITY CHECK (IMPORTANT)
+----------------------------------
+The summary must answer:
+"What would someone learn from this note in one glance?"
+
+----------------------------------
+INPUT:
 {content}
+
+----------------------------------
+OUTPUT:
+Return ONLY the summary.
+
 """
     result = call_llm(prompt)
     return result if result else ""
