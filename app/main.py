@@ -19,6 +19,7 @@ app.add_middleware(
     allow_origins=[
         "http://127.0.0.1:5500",
         "http://localhost:5500",
+        "https://skill-tree-mocha.vercel.app", 
         "https://earnest-tarsier-3c57db.netlify.app"
     ],
     allow_credentials=True,
