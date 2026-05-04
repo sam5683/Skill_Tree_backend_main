@@ -12,22 +12,80 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 # Structure Detection 
 # -----------------------------
 def is_structured(content: str) -> bool:
-    lines = content.split("\n")
+    if not content:
+        return False
 
+    lines = [l.strip() for l in content.split("\n") if l.strip()]
+
+    if len(lines) < 4:
+        return False
+
+    # --- SIGNALS OF STRUCTURE ---
+
+    # Bullet points
+    bullet_count = sum(
+        1 for l in lines
+        if l.startswith(("-", "*", "•"))
+    )
+
+    # Numbered lists
+    numbered_count = sum(
+        1 for l in lines
+        if l[:2].isdigit() or l[:3].replace(".", "").isdigit()
+    )
+
+    # Headings (short + capitalized)
     heading_count = sum(
         1 for l in lines
-        if len(l.strip()) > 0
-        and not l.strip().endswith(":")
-        and l.strip().istitle()
+        if len(l.split()) <= 6 and l[:1].isupper()
     )
 
+    # Key-value / section style (e.g. "Client Request:")
+    section_count = sum(
+        1 for l in lines
+        if ":" in l and len(l.split()) <= 10
+    )
+
+    # Long readable lines (paragraphs)
     paragraph_count = sum(
         1 for l in lines
-        if len(l.strip()) > 40
+        if len(l) > 60
     )
 
-    return heading_count >= 3 and paragraph_count >= 3
+    # Table detection
+    table_like = any("|" in l for l in lines)
 
+    # Diagram detection (flow arrows etc.)
+    diagram_like = any("->" in l or "=>" in l or "→" in l for l in lines)
+
+    # --- DECISION LOGIC (deterministic) ---
+
+    structure_score = 0
+
+    if bullet_count >= 3:
+        structure_score += 2
+
+    if numbered_count >= 2:
+        structure_score += 2
+
+    if heading_count >= 2:
+        structure_score += 1
+
+    if section_count >= 2:
+        structure_score += 2
+
+    if paragraph_count >= 2:
+        structure_score += 1
+
+    if table_like:
+        structure_score += 3
+
+    if diagram_like:
+        structure_score += 2
+
+    # --- FINAL DECISION ---
+
+    return structure_score >= 4
 
 # -----------------------------
 # Core LLM Call
@@ -81,100 +139,100 @@ def improve_note_content(content: str) -> str:
     prompt = f"""
 You are a high-precision note reconstruction system.
 
-Your goal is NOT just editing.
-Your goal is to:
-1. CLEAN noise
-2. PRESERVE meaning
-3. STRUCTURE content
-4. RECONSTRUCT only when safe
+Your job is to convert messy or OCR-extracted text into clean, readable notes.
 
+--------------------------------------------------
+CORE OBJECTIVES
+--------------------------------------------------
+1. Remove noise (OCR junk, UI text, broken fragments)
+2. Preserve original meaning and intent
+3. Improve readability and structure
+4. Reconstruct only when meaning is clear
+
+--------------------------------------------------
+STEP 1 — FILTER NOISE
+--------------------------------------------------
+Remove lines that are clearly not useful:
+
+- Website navigation (BLOG | ABOUT | etc.)
+- Random symbols or broken words
+- Repeated fragments
+- Headers/footers from websites
+- Unreadable OCR artifacts
+
+Keep anything that might carry meaning.
 ----------------------------------
-STEP 1: CLASSIFY EACH LINE
+IMPORTANT: STRUCTURED DATA PRESERVATION
 ----------------------------------
-For every line, classify:
+DO NOT remove or alter:
 
-- SIGNAL → meaningful content
-- NOISE → OCR junk, UI text, broken fragments
+- Tables (rows, columns, | separators)
+- Diagrams (arrows →, =>, flow-like text)
+- Code-like structures
+- Numbered steps or sequences
 
-NOISE examples:
-- website headers/footers
-- random symbols or broken words
-- navigation text (BLOG | ABOUT | etc.)
-- repeated garbage fragments
-- incomplete unreadable tokens
+If content looks structured (table/diagram/code):
+→ PRESERVE it as is
+→ Only clean surrounding noise
 
-REMOVE noise aggressively.
+--------------------------------------------------
+STEP 2 — PRESERVE INTENT
+--------------------------------------------------
+- Keep original meaning EXACT
+- Do not rewrite personal tone unnecessarily
+- Do not over-formalize simple notes
+- Do not remove useful but imperfect content
 
-----------------------------------
-STEP 2: PRESERVE USER INTENT
-----------------------------------
-- If content is already clear → KEEP it
-- If user wrote personal notes → DO NOT rewrite tone
-- Do NOT over-formalize human writing
+--------------------------------------------------
+STEP 3 — SAFE RECONSTRUCTION
+--------------------------------------------------
+You may fix or complete text ONLY if:
 
-----------------------------------
-STEP 3: SMART RECONSTRUCTION (CRITICAL)
-----------------------------------
-You MAY reconstruct missing or broken parts ONLY IF:
+✔ Meaning is obvious  
+✔ Context is clear  
+✔ Confidence is high  
 
-✔ Context is clear
-✔ Meaning is obvious
-✔ Confidence is HIGH
+Otherwise → leave it as is
 
-Examples:
-- "Avoidant Atta" → "Avoidant Attachment Style" ✅
-- Broken sentence → fix grammar ✅
+NEVER guess or invent information.
 
-If uncertain:
-→ KEEP original text
+--------------------------------------------------
+STEP 4 — STRUCTURE FOR READABILITY
+--------------------------------------------------
+Improve structure where needed:
 
-NEVER invent facts.
-
-----------------------------------
-STEP 4: STRUCTURE OUTPUT
-----------------------------------
-Convert into clean readable format:
-
-- Add headings when obvious
+- Use headings if clearly implied
 - Use bullet points for lists
 - Break long paragraphs
 - Group related ideas
 
-DO NOT over-structure.
+Avoid over-formatting.
 
-----------------------------------
-STEP 5: STRICT RULES
-----------------------------------
+--------------------------------------------------
+STEP 5 — STRICT RULES
+--------------------------------------------------
 - NEVER change meaning
-- NEVER add new concepts
-- NEVER hallucinate missing info
-- REMOVE only clear noise
-- KEEP valuable imperfect content
+- NEVER add new information
+- NEVER hallucinate
+- ONLY remove clear noise
+- KEEP meaningful content even if imperfect
 
-----------------------------------
-STEP 6: OUTPUT STYLE
-----------------------------------
-- Clean
-- Human-like
-- Readable
-- Structured
-- Not robotic
+--------------------------------------------------
+OUTPUT RULES (CRITICAL)
+--------------------------------------------------
+- Return ONLY the final cleaned note
+- DO NOT explain anything
+- DO NOT describe steps
+- DO NOT add introductions or conclusions
+- DO NOT include phrases like:
+  "Here is", "Based on", "I have", etc.
 
-----------------------------------
-STEP 7: IDEMPOTENT
-----------------------------------
-Running this again should NOT change output.
+The output must look like clean, well-structured notes.
 
-----------------------------------
+--------------------------------------------------
 INPUT:
 {content}
-
 ----------------------------------
-OUTPUT:
-Return ONLY the cleaned and structured note.
------------------------
-NOTE:
-{content}
 """
 
     result = call_llm(prompt)
@@ -201,6 +259,7 @@ OUTPUT REQUIREMENTS
 - No meta phrases ("This note explains...")
 - No labels or formatting
 - Must be clear and meaningful on its own
+
 
 ----------------------------------
 HOW TO THINK
