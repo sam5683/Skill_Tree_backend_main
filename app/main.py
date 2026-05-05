@@ -23,8 +23,9 @@ app.add_middleware(
         "https://earnest-tarsier-3c57db.netlify.app"
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+    max_age=86400,
 )
 
 # Create tables
