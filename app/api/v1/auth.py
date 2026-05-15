@@ -46,7 +46,7 @@ def login(
         value=token,
         httponly=True,
         secure= False,   # True in production HTTPS
-        samesite="lax",
+        samesite="None",
         max_age=60 * 60 * 24
     )
 
