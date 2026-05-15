@@ -176,7 +176,7 @@ async def google_callback(
     # -----------------------------------
     response = RedirectResponse(
         url="https://skill-tree-mocha.vercel.app/dashboard.html",
-        status_code=302
+        status_code=303
     )
 
     # -----------------------------------
@@ -189,7 +189,7 @@ async def google_callback(
 
         # LOCALHOST
         secure=True,
-        samesite="none",
+        samesite="None",
 
         # PRODUCTION LATER:
         # secure=True,
