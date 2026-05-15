@@ -45,9 +45,10 @@ def login(
         key="access_token",
         value=token,
         httponly=True,
-        secure= False,   # True in production HTTPS
+        secure= True,   # True in production HTTPS
         samesite="None",
-        max_age=60 * 60 * 24
+        max_age=60 * 60 * 24,
+        path="/"
     )
 
     return {
