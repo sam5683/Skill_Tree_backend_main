@@ -15,11 +15,14 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+
+    if not hashed_password:
+        return False
+
     return bcrypt.checkpw(
         plain_password.encode(),
         hashed_password.encode()
     )
-
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
