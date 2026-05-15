@@ -184,7 +184,7 @@ async def google_callback(
     
     response = RedirectResponse(
         url=redirect_url,
-        status_code=303
+        status_code=302
     )
 
     # -----------------------------------
