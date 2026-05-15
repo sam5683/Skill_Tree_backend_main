@@ -6,9 +6,13 @@ from app.db.session import get_db
 from app.schemas.user import UserCreate, UserResponse
 from app.services.auth_service import create_user, authenticate
 from app.core.security import create_access_token, verify_password
+from authlib.integrations.starlette_client import OAuth
+from fastapi.responses import RedirectResponse
+from starlette.requests import Request
+from app.models.user import User
 
 router = APIRouter()
-
+oauth = OAuth()
 
 #  REGISTER
 @router.post("/register", response_model=UserResponse)
@@ -41,8 +45,8 @@ def login(
         key="access_token",
         value=token,
         httponly=True,
-        secure= True,   # True in production HTTPS
-        samesite="none",
+        secure= False,   # True in production HTTPS
+        samesite="lax",
         max_age=60 * 60 * 24
     )
 
@@ -66,3 +70,132 @@ def logout(response: Response):
     return {
         "message": "Logged out successfully"
     }
+
+
+
+oauth.register(
+    name="google",
+    client_id=settings.GOOGLE_CLIENT_ID,
+    client_secret=settings.GOOGLE_CLIENT_SECRET,
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={
+        "scope": "openid email profile"
+    }
+)
+
+
+
+@router.get("/auth/google/login")
+async def google_login(request: Request):
+    redirect_uri = request.url_for("google_callback")
+    return await oauth.google.authorize_redirect(
+        request,
+        redirect_uri
+    )
+
+
+@router.get("/auth/google/callback", name="google_callback")
+async def google_callback(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    import random
+    import re
+
+    token = await oauth.google.authorize_access_token(request)
+
+    user_info = token.get("userinfo")
+
+    if not user_info:
+        raise HTTPException(
+            status_code=400,
+            detail="Google login failed"
+        )
+
+    email = user_info["email"]
+
+    # -----------------------------------
+    # CHECK IF USER EXISTS
+    # -----------------------------------
+    user = db.query(User).filter(
+        User.email == email
+    ).first()
+
+    # -----------------------------------
+    # CREATE USER IF NOT EXISTS
+    # -----------------------------------
+    if not user:
+
+        # email prefix
+        base_username = email.split("@")[0].lower()
+
+        # remove invalid characters
+        base_username = re.sub(
+            r"[^a-zA-Z0-9_]",
+            "",
+            base_username
+        )
+
+        # fallback safety
+        if not base_username:
+            base_username = "user"
+
+        # generate unique username
+        while True:
+
+            discriminator = random.randint(3000, 9999)
+
+            username = f"{base_username}#{discriminator}"
+
+            existing_user = db.query(User).filter(
+                User.username == username
+            ).first()
+
+            if not existing_user:
+                break
+
+        user = User(
+            email=email,
+            username=username,
+            hashed_password=""
+        )
+
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    # -----------------------------------
+    # CREATE JWT
+    # -----------------------------------
+    access_token = create_access_token({
+        "sub": str(user.id)
+    })
+
+    # -----------------------------------
+    # REDIRECT TO FRONTEND
+    # -----------------------------------
+    response = RedirectResponse(
+        url="http://127.0.0.1:5500/dashboard.html",
+        status_code=303
+    )
+
+    # -----------------------------------
+    # STORE COOKIE
+    # -----------------------------------
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+
+        # LOCALHOST
+        secure=True,
+        samesite="none",
+
+        # PRODUCTION LATER:
+        # secure=True,
+        # samesite="none",
+
+        max_age=60 * 60 * 24
+    )
+
+    return response

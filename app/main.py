@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from starlette.middleware.sessions import SessionMiddleware
 from app.api.v1 import router as api_router
 from app.db.session import engine
 from app.db.base import Base
+from app.core.config import settings
 
 # Register models so Alembic sees them
 from app.models import user, note, flashcard
@@ -13,6 +14,12 @@ app = FastAPI(title="SkillTree API", version="1.0.0")
 @app.get("/")
 def root():
     return {"message": "API running"}
+
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY
+)
 
 app.add_middleware(
     CORSMiddleware,
