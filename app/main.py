@@ -16,10 +16,7 @@ def root():
     return {"message": "API running"}
 
 
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=settings.SECRET_KEY
-)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,6 +30,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY
+)
+
 
 # Create tables
 try:

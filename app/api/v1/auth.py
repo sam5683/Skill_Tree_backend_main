@@ -10,6 +10,7 @@ from authlib.integrations.starlette_client import OAuth
 from fastapi.responses import RedirectResponse
 from starlette.requests import Request
 from app.models.user import User
+import os
 
 router = APIRouter()
 oauth = OAuth()
@@ -65,7 +66,10 @@ def login(
 def logout(response: Response):
 
     response.delete_cookie(
-        key="access_token"
+        key="access_token",
+        path="/",
+        samesite="None",
+        secure=True
     )
 
     return {
@@ -173,10 +177,13 @@ async def google_callback(
     })
 
     # -----------------------------------
-    # REDIRECT TO FRONTEND
+    # REDIRECT TO FRONTEND (using environment variable)
     # -----------------------------------
+    frontend_url = os.getenv("FRONTEND_URL", "https://skill-tree-mocha.vercel.app")
+    redirect_url = f"{frontend_url}/dashboard.html"
+    
     response = RedirectResponse(
-        url="https://skill-tree-mocha.vercel.app/dashboard.html",
+        url=redirect_url,
         status_code=303
     )
 
@@ -187,15 +194,8 @@ async def google_callback(
         key="access_token",
         value=access_token,
         httponly=True,
-
-        # LOCALHOST
         secure=True,
         samesite="None",
-
-        # PRODUCTION LATER:
-        # secure=True,
-        # samesite="none",
-
         max_age=60 * 60 * 24,
         path="/"
     )
