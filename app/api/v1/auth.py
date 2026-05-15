@@ -175,8 +175,8 @@ async def google_callback(
     # REDIRECT TO FRONTEND
     # -----------------------------------
     response = RedirectResponse(
-        url="http://127.0.0.1:5500/dashboard.html",
-        status_code=303
+        url="https://skill-tree-mocha.vercel.app/dashboard.html",
+        status_code=302
     )
 
     # -----------------------------------
@@ -195,7 +195,8 @@ async def google_callback(
         # secure=True,
         # samesite="none",
 
-        max_age=60 * 60 * 24
+        max_age=60 * 60 * 24,
+        path="/"
     )
 
     return response
