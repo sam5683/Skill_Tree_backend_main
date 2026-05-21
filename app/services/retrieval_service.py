@@ -7,35 +7,15 @@ from app.models.embedding_chunk import EmbeddingChunk
 from app.models.note import Note
 
 
-def process_note_embeddings(
+async def process_note_embeddings(db: Session,note_id: int,user_id: int):
 
-    db: Session,
-
-    note_id: int,
-
-    user_id: int
-
-):
-
-    note = db.query(Note).filter(
-
-        Note.id == note_id,
-
-        Note.user_id == user_id
-
-    ).first()
+    note = db.query(Note).filter(Note.id == note_id,Note.user_id == user_id).first()
 
     if not note:
         return None
 
     # delete old chunks first
-    db.query(EmbeddingChunk).filter(
-
-        EmbeddingChunk.note_id == note_id,
-
-        EmbeddingChunk.user_id == user_id
-
-    ).delete()
+    db.query(EmbeddingChunk).filter(EmbeddingChunk.note_id == note_id,EmbeddingChunk.user_id == user_id).delete()
 
     chunks = chunk_text(note.content)
 
@@ -43,7 +23,7 @@ def process_note_embeddings(
 
     for chunk in chunks:
 
-        embedding = generate_embedding(chunk)
+        embedding = await generate_embedding(chunk)
 
         row = EmbeddingChunk(
 

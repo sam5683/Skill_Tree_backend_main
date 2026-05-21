@@ -28,7 +28,7 @@ async def semantic_search(
     current_user: User = Depends(get_current_user)
 ):
 
-    results = search_similar_chunks(
+    results = await search_similar_chunks(
 
         db=db,
 

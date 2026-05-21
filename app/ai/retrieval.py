@@ -3,9 +3,9 @@ from sqlalchemy import text
 from app.ai.embeddings import generate_embedding
 
 
-def search_similar_chunks( db, query: str,user_id: int,limit: int = 5):
+async def search_similar_chunks( db, query: str,user_id: int,limit: int = 5):
 
-    query_embedding = generate_embedding(query)
+    query_embedding = await generate_embedding(query)
 
     sql = text("""
 

@@ -3,25 +3,9 @@ from app.ai.retrieval import search_similar_chunks
 from app.ai.client import call_llm
 
 
-async def rag_answer(
+async def rag_answer(db,query: str,user_id: int):
 
-    db,
-
-    query: str,
-
-    user_id: int
-):
-
-    results = search_similar_chunks(
-
-        db=db,
-
-        query=query,
-
-        user_id=user_id,
-
-        limit=5
-    )
+    results = await search_similar_chunks(db=db,query=query,user_id=user_id,limit=5)
 
     context = "\n\n".join(
 

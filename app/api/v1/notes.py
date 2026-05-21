@@ -256,7 +256,7 @@ async def embed_note(
 
 ):
 
-    chunks = process_note_embeddings(
+    chunks = await process_note_embeddings(
 
         db=db,
 

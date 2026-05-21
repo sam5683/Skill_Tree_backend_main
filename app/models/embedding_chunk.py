@@ -32,6 +32,6 @@ class EmbeddingChunk(Base):
     )
 
     embedding = Column(
-        Vector(1024),
+        Vector(3072),
         nullable=False
     )

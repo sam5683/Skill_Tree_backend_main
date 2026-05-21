@@ -1,19 +1,26 @@
-import cohere
+from google import genai
 
 from app.core.config import settings
 
 
-co = cohere.Client(
-    settings.COHERE_API_KEY
+client = genai.Client(
+
+    api_key=settings.GEMINI_API_KEY
 )
 
 
-def generate_embedding(text: str):
+async def generate_embedding(text: str):
 
-    response = co.embed(
-        texts=[text],
-        model="embed-english-v3.0",
-        input_type="search_document"
+    clean_text = text.strip()
+
+    if not clean_text:
+        return []
+
+    response = client.models.embed_content(
+
+        model="gemini-embedding-001",
+
+        contents=clean_text
     )
 
-    return response.embeddings[0]
+    return response.embeddings[0].values
