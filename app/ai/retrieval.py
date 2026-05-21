@@ -3,7 +3,7 @@ from sqlalchemy import text
 from app.ai.embeddings import generate_embedding
 
 
-async def search_similar_chunks( db, query: str,user_id: int,limit: int = 5):
+async def search_similar_chunks(db,query: str,user_id: int,limit: int = 5):
 
     query_embedding = await generate_embedding(query)
 
@@ -42,17 +42,16 @@ async def search_similar_chunks( db, query: str,user_id: int,limit: int = 5):
         }
     )
 
-    return results.fetchall()
-
+    rows = results.fetchall()
 
     # -----------------------------
     # Filter weak matches
     # -----------------------------
-    filtered = [
+    filtered_rows = [
 
         row for row in rows
 
         if row.distance < 0.7
     ]
 
-    return filtered
+    return filtered_rows
