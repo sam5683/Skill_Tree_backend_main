@@ -22,12 +22,12 @@ router = APIRouter(prefix="/flashcards", tags=["Flashcards"])
 # POST /flashcards/from-note/{note_id}
 # ----------------------------------------------------
 @router.post("/from-note/{note_id}", response_model=List[FlashcardResponse])
-def generate_flashcards_from_note(
+async def generate_flashcards_from_note(
     note_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    cards = create_flashcards_from_note(db, note_id, current_user.id)
+    cards = await create_flashcards_from_note(db, note_id, current_user.id)
 
     if not cards:
         raise HTTPException(status_code=404, detail="Note not found or no content")

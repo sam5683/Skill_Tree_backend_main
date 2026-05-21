@@ -1,12 +1,12 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
 import re
-import requests
 
 from app.models.flashcard import Flashcard
 from app.models.note import Note
 from app.services.srs_service import update_srs
-from app.core.config import settings
+
+from app.ai.client import call_llm
 
 
 # -----------------------------
@@ -14,68 +14,34 @@ from app.core.config import settings
 # -----------------------------
 MAX_CARDS = 12
 MIN_LEN = 20
-USE_AI_ENHANCER = True  # toggle
-
-
-# -----------------------------
-# GROQ CONFIG
-# -----------------------------
-GROQ_API_KEY = settings.GROQ_API_KEY
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-
-
-# -----------------------------
-# LLM CALL
-# -----------------------------
-def call_llm(prompt: str) -> str:
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    data = {
-        "model": "llama-3.1-8b-instant",
-        "messages": [
-            {"role": "system", "content": "You improve flashcards."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.2
-    }
-
-    res = requests.post(GROQ_URL, headers=headers, json=data)
-
-    if res.status_code != 200:
-        return None
-
-    return res.json()["choices"][0]["message"]["content"]
+USE_AI_ENHANCER = True
 
 
 # -----------------------------
 # NORMALIZE
 # -----------------------------
 def normalize_line(line: str):
+
     line = line.strip()
 
-    # remove numbering like "1. "
     line = re.sub(r"^\d+\.\s*", "", line)
 
-    # normalize spaces
     line = re.sub(r"\s+", " ", line)
 
     return line
 
 
 # -----------------------------
-# VALIDATION (FIXED)
+# VALIDATION
 # -----------------------------
 def is_valid(line: str):
+
     if len(line) < MIN_LEN:
         return False
 
     if not line[0].isupper():
         return False
 
-    # allow technical content now ✅
     if line.count("=") > 3:
         return False
 
@@ -83,12 +49,14 @@ def is_valid(line: str):
 
 
 # -----------------------------
-# MULTI-LINE ANSWER EXTRACTION 🔥
+# MULTI-LINE ANSWER EXTRACTION
 # -----------------------------
 def extract_answer_block(lines, start_index):
+
     answer_lines = []
 
     for j in range(start_index + 1, len(lines)):
+
         line = normalize_line(lines[j])
 
         if not line:
@@ -109,9 +77,11 @@ def extract_answer_block(lines, start_index):
 # QUESTION EXTRACTION
 # -----------------------------
 def extract_questions(lines):
+
     cards = []
 
     for i, raw in enumerate(lines):
+
         line = normalize_line(raw)
 
         if not line.endswith("?"):
@@ -132,19 +102,27 @@ def extract_questions(lines):
 # DEFINITIONS
 # -----------------------------
 def extract_definitions(lines):
+
     cards = []
 
     for raw in lines:
+
         line = normalize_line(raw)
 
         if not is_valid(line):
             continue
 
-        match = re.match(r"(.+?)\s+(is|are)\s+(.+)", line, re.IGNORECASE)
+        match = re.match(
+            r"(.+?)\s+(is|are)\s+(.+)",
+            line,
+            re.IGNORECASE
+        )
+
         if not match:
             continue
 
         subject = match.group(1).strip()
+
         value = match.group(3).strip()
 
         if len(subject.split()) > 6:
@@ -154,6 +132,7 @@ def extract_definitions(lines):
             continue
 
         q = f"What is {subject}?"
+
         a = value
 
         cards.append((q, a))
@@ -165,21 +144,25 @@ def extract_definitions(lines):
 # LABELED
 # -----------------------------
 def extract_labeled(lines):
+
     cards = []
 
     for raw in lines:
+
         if ":" not in raw:
             continue
 
         title, desc = raw.split(":", 1)
 
         title = title.strip()
+
         desc = normalize_line(desc)
 
         if len(title) < 3 or len(desc) < 10:
             continue
 
         q = f"What is {title}?"
+
         a = desc
 
         cards.append((q, a))
@@ -188,20 +171,29 @@ def extract_labeled(lines):
 
 
 # -----------------------------
-# BULLETS + NUMBERED 🔥
+# BULLETS + NUMBERED
 # -----------------------------
 def extract_bullets(lines):
+
     cards = []
 
     for raw in lines:
+
         line = raw.strip()
 
-        if line.startswith(("-", "*", "•")) or re.match(r"^\d+\.", line):
+        if (
+            line.startswith(("-", "*", "•"))
+            or re.match(r"^\d+\.", line)
+        ):
+
             clean = normalize_line(line)
 
             if len(clean) > 20:
+
                 q = f"What does this mean: {clean[:40]}?"
+
                 a = clean
+
                 cards.append((q, a))
 
     return cards
@@ -211,9 +203,13 @@ def extract_bullets(lines):
 # REFINE QUESTION
 # -----------------------------
 def refine_question(q):
+
     q = q.strip()
+
     q = re.sub(r"\s+", " ", q)
+
     q = q.replace("What does", "How does")
+
     return q
 
 
@@ -221,14 +217,19 @@ def refine_question(q):
 # DEDUP
 # -----------------------------
 def deduplicate(cards):
+
     seen = set()
+
     result = []
 
     for q, a in cards:
-        key = re.sub(r'\W+', '', q.lower())
+
+        key = re.sub(r"\W+", "", q.lower())
 
         if key not in seen:
+
             seen.add(key)
+
             result.append((q, a))
 
     return result
@@ -238,6 +239,7 @@ def deduplicate(cards):
 # SCORING
 # -----------------------------
 def score_card(q, a):
+
     score = 0
 
     if len(q.split()) <= 12:
@@ -246,21 +248,29 @@ def score_card(q, a):
     if 8 <= len(a.split()) <= 40:
         score += 3
 
-    if not a.lower().startswith(("it ", "this ", "there ")):
+    if not a.lower().startswith(
+        ("it ", "this ", "there ")
+    ):
         score += 2
 
-    if any(v in a.lower() for v in ["ensures", "allows", "manages", "improves"]):
+    if any(
+        v in a.lower()
+        for v in [
+            "ensures",
+            "allows",
+            "manages",
+            "improves"
+        ]
+    ):
         score += 2
 
     return score
 
 
 # -----------------------------
-# AI ENHANCER (SAFE)
+# AI ENHANCER
 # -----------------------------
-def enhance_flashcard(q, a):
-    if not GROQ_API_KEY:
-        return q, a
+async def enhance_flashcard(q, a):
 
     prompt = f"""
 Improve this flashcard WITHOUT changing meaning.
@@ -268,7 +278,7 @@ Improve this flashcard WITHOUT changing meaning.
 Rules:
 - Keep meaning EXACT
 - Make question clearer
-- Make answer concise (1-2 lines max)
+- Make answer concise
 - Do NOT add new info
 
 Q: {q}
@@ -279,16 +289,25 @@ Q: ...
 A: ...
 """
 
-    result = call_llm(prompt)
+    result = await call_llm(
+        prompt=prompt,
+        system_prompt="You improve flashcards.",
+        temperature=0.2
+    )
 
     if not result:
         return q, a
 
     try:
+
         lines = result.split("\n")
+
         new_q = lines[0].replace("Q:", "").strip()
+
         new_a = lines[1].replace("A:", "").strip()
+
         return new_q, new_a
+
     except:
         return q, a
 
@@ -296,7 +315,12 @@ A: ...
 # -----------------------------
 # MAIN PIPELINE
 # -----------------------------
-def create_flashcards_from_note(db: Session, note_id: int, user_id: int):
+async def create_flashcards_from_note(
+    db: Session,
+    note_id: int,
+    user_id: int
+):
+
     note = db.query(Note).filter(
         Note.id == note_id,
         Note.user_id == user_id
@@ -305,7 +329,10 @@ def create_flashcards_from_note(db: Session, note_id: int, user_id: int):
     if not note:
         return None
 
-    raw_lines = [l for l in note.content.split("\n") if l.strip()]
+    raw_lines = [
+        l for l in note.content.split("\n")
+        if l.strip()
+    ]
 
     # delete old
     db.query(Flashcard).filter(
@@ -315,30 +342,57 @@ def create_flashcards_from_note(db: Session, note_id: int, user_id: int):
 
     # extraction
     candidates = []
+
     candidates += extract_questions(raw_lines)
+
     candidates += extract_definitions(raw_lines)
+
     candidates += extract_labeled(raw_lines)
+
     candidates += extract_bullets(raw_lines)
 
     # refine
-    refined = [(refine_question(q), a) for q, a in candidates]
+    refined = [
+        (refine_question(q), a)
+        for q, a in candidates
+    ]
 
     # dedup
     refined = deduplicate(refined)
 
     # score
-    scored = [(q, a, score_card(q, a)) for q, a in refined]
-    scored.sort(key=lambda x: x[2], reverse=True)
+    scored = [
+        (q, a, score_card(q, a))
+        for q, a in refined
+    ]
 
-    best_cards = [(q, a) for q, a, _ in scored[:MAX_CARDS]]
+    scored.sort(
+        key=lambda x: x[2],
+        reverse=True
+    )
 
-    # 🔥 AI enhancer (optional)
+    best_cards = [
+        (q, a)
+        for q, a, _ in scored[:MAX_CARDS]
+    ]
+
+    # AI enhancer
     if USE_AI_ENHANCER:
-        best_cards = [enhance_flashcard(q, a) for q, a in best_cards]
+
+        enhanced_cards = []
+
+        for q, a in best_cards:
+
+            improved = await enhance_flashcard(q, a)
+
+            enhanced_cards.append(improved)
+
+        best_cards = enhanced_cards
 
     flashcards = []
 
     for q, a in best_cards:
+
         card = Flashcard(
             note_id=note_id,
             user_id=user_id,
@@ -352,23 +406,32 @@ def create_flashcards_from_note(db: Session, note_id: int, user_id: int):
         )
 
         db.add(card)
+
         flashcards.append(card)
 
     db.commit()
+
     return flashcards
 
 
 # -----------------------------
-# OTHER (unchanged)
+# OTHER
 # -----------------------------
 def get_due_flashcards(db: Session, user_id: int):
+
     return db.query(Flashcard).filter(
         Flashcard.user_id == user_id,
         Flashcard.due_date <= datetime.utcnow()
     ).limit(20).all()
 
 
-def review_flashcard(db: Session, card_id: int, rating: str, user_id: int):
+def review_flashcard(
+    db: Session,
+    card_id: int,
+    rating: str,
+    user_id: int
+):
+
     card = db.query(Flashcard).filter(
         Flashcard.id == card_id,
         Flashcard.user_id == user_id
@@ -380,20 +443,31 @@ def review_flashcard(db: Session, card_id: int, rating: str, user_id: int):
     update_srs(card, rating)
 
     db.commit()
+
     db.refresh(card)
 
     return card
 
 
-def get_flashcards_for_note(db: Session, note_id: int, user_id: int):
+def get_flashcards_for_note(
+    db: Session,
+    note_id: int,
+    user_id: int
+):
+
     return db.query(Flashcard).filter(
         Flashcard.note_id == note_id,
         Flashcard.user_id == user_id
     ).all()
 
 
-def delete_all_flashcards(db: Session, user_id: int):
+def delete_all_flashcards(
+    db: Session,
+    user_id: int
+):
+
     db.query(Flashcard).filter(
         Flashcard.user_id == user_id
     ).delete()
+
     db.commit()

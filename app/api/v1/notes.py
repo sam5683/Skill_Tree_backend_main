@@ -13,7 +13,7 @@ from fastapi import UploadFile, File
 from app.services.ocr_service import extract_text_from_image
 from app.services.ai_service import improve_note_content
 from fastapi import BackgroundTasks
-
+from app.services.retrieval_service import (process_note_embeddings)
 
 router = APIRouter(
     prefix="/notes",
@@ -25,6 +25,7 @@ router = APIRouter(
 @router.post("", response_model=NoteOut)
 def create_note(
     note: NoteCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -41,6 +42,9 @@ def create_note(
     db.add(new_note)
     db.commit()
     db.refresh(new_note)
+
+    background_tasks.add_task(process_note_embeddings,db,new_note.id,current_user.id)
+
     return new_note
 
 # -------------------- LIST --------------------
@@ -111,6 +115,7 @@ def get_note(
 @router.put("/{note_id}", response_model=NoteOut)
 def update_note(
     note_id: int,
+    background_tasks: BackgroundTasks,
     note_update: NoteUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -120,17 +125,23 @@ def update_note(
         .filter(Note.id == note_id, Note.user_id == current_user.id)
         .first()
     )
-
+    
+    content_updated = False
+    
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
+        
 
     if note_update.title is not None:
         note.title = note_update.title
 
     if note_update.content is not None:
         note.content = note_update.content
+        content_updated = True
+
         if note_update.summary is None:
             note.summary = generate_summary(note_update.content)
+            
 
     if note_update.summary is not None:
         note.summary = note_update.summary
@@ -140,6 +151,20 @@ def update_note(
 
     db.commit()
     db.refresh(note)
+
+# -----------------------------# Re-embed updated content # -----------------------------
+    if content_updated:
+
+        background_tasks.add_task(
+
+            process_note_embeddings,
+
+            db,
+
+            note.id,
+
+            current_user.id
+        )
     return note
 
 # -------------------- DELETE --------------------
@@ -169,7 +194,7 @@ def delete_note(
 # -------------------- REGENERATE SUMMARY --------------------
 
 @router.post("/{note_id}/regenerate-summary", response_model=NoteOut)
-def regenerate_summary(
+async def regenerate_summary(
     note_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -183,7 +208,7 @@ def regenerate_summary(
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
 
-    note.summary = generate_summary(note.content)
+    note.summary = await generate_summary(note.content)
 
     db.commit()
     db.refresh(note)
@@ -212,7 +237,46 @@ async def improve_note(
     if not content:
         return {"improved_content": ""}
 
-    improved = improve_note_content(content)
+    improved = await improve_note_content(content)
 
     return {"improved_content": improved}
 
+
+
+#--------------------------------------- emdedding notes -----------------------------------
+
+@router.post("/{note_id}/embed")
+async def embed_note(
+
+    note_id: int,
+
+    db: Session = Depends(get_db),
+
+    current_user: User = Depends(get_current_user)
+
+):
+
+    chunks = process_note_embeddings(
+
+        db=db,
+
+        note_id=note_id,
+
+        user_id=current_user.id
+    )
+
+    if not chunks:
+
+        raise HTTPException(
+
+            status_code=404,
+
+            detail="Note not found"
+        )
+
+    return {
+
+        "message": "Embeddings created",
+
+        "chunks_created": len(chunks)
+    }
