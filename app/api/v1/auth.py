@@ -46,8 +46,8 @@ def login(
         key="access_token",
         value=token,
         httponly=True,
-        secure= True,   # True in production HTTPS
-        samesite="None",
+        secure=settings.ENVIRONMENT == "production",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
         max_age=60 * 60 * 24,
         path="/"
     )
@@ -68,8 +68,8 @@ def logout(response: Response):
     response.delete_cookie(
         key="access_token",
         path="/",
-        samesite="None",
-        secure=True
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
+        secure=settings.ENVIRONMENT == "production"
     )
 
     return {
@@ -194,8 +194,8 @@ async def google_callback(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
-        samesite="None",
+        secure=settings.ENVIRONMENT == "production",
+        samesite="none" if settings.ENVIRONMENT == "production" else "lax",
         max_age=60 * 60 * 24,
         path="/"
     )

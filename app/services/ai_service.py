@@ -138,34 +138,106 @@ INPUT:
     return result if result else content
 
 
+
 # -----------------------------
 # Generate Summary
 # -----------------------------
-async def generate_summary(content: str) -> str:
 
-    if not content or len(content.strip()) < 20:
+async def generate_summary(
+    content: dict
+) -> str:
+
+    if not content:
         return ""
 
+    """
+    EXTRACT TEXT FROM EXCALIDRAW
+    """
+
+    elements = content.get(
+        "elements",
+        []
+    )
+
+    text_parts = []
+
+    for element in elements:
+
+        if element.get("type") != "text":
+            continue
+
+        text = (
+            element
+            .get("text", "")
+            .strip()
+        )
+
+        if text:
+            text_parts.append(text)
+
+    combined_text = "\n".join(
+        text_parts
+    ).strip()
+
+    """
+    SKIP:
+    - EMPTY NOTES
+    - IMAGE ONLY NOTES
+    - VERY SMALL NOTES
+    """
+
+    if len(combined_text) < 120:
+        return ""
+
+    """
+    PREVENT HUGE TOKENS
+    """
+
+    combined_text = combined_text[:4000]
+
     prompt = f"""
-You are a high-precision summarization system.
+You are Pepa, an intelligent learning assistant.
 
-----------------------------------
-RULES
-----------------------------------
-- Maximum 2 lines
-- No fluff
-- No hallucination
-- Clear and concise
+Create a concise revision-style summary of the user's study note.
 
-----------------------------------
-INPUT:
-{content}
+RULES:
+- Maximum 2 short lines
+- No filler
+- No robotic AI phrasing
+- No introductions
+- No conclusions
+- No hallucinations
+- Focus only on the core concepts
+- Make it useful for quick revision
+- Sound confident and natural
+
+NOTE CONTENT:
+{combined_text}
+
+SUMMARY:
 """
 
     result = await call_llm(
+
         prompt=prompt,
-        system_prompt="You are a high-precision summarization system.",
-        temperature=0.3
+
+        system_prompt="""
+You create concise educational summaries.
+""",
+
+        temperature=0.2
     )
 
-    return result if result else ""
+    if not result:
+        return ""
+
+    cleaned = result.strip()
+
+    """
+    PREVENT OVERLONG RESPONSES
+    """
+
+    if len(cleaned) > 220:
+        cleaned = cleaned[:220]
+
+    return cleaned

@@ -21,10 +21,10 @@ class EmbeddingChunk(Base):
     )
 
     note_id = Column(
-        Integer,
-        ForeignKey("notes.id"),
-        nullable=False
-    )
+       Integer,
+       ForeignKey("notes.id", ondelete="CASCADE"),
+       nullable=False
+)
 
     chunk_text = Column(
         Text,

@@ -1,11 +1,26 @@
-from sqlalchemy import Column, Integer, ForeignKey, DateTime, Text, String
-from datetime import datetime
+from sqlalchemy import (
+    Column,
+    Integer,
+    ForeignKey,
+    DateTime,
+    Text,
+    String
+)
+
+from sqlalchemy.sql import func
+
 from app.db.base import Base
 
+
 class Message(Base):
+
     __tablename__ = "messages"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     conversation_id = Column(
         Integer,
@@ -14,12 +29,17 @@ class Message(Base):
         index=True
     )
 
-    role = Column(String, nullable=False)
-    # "user" or "assistant"
+    role = Column(
+        String,
+        nullable=False
+    )
 
-    content = Column(Text, nullable=False)
+    content = Column(
+        Text,
+        nullable=False
+    )
 
     created_at = Column(
-        DateTime,
-        default=datetime.utcnow
+        DateTime(timezone=True),
+        server_default=func.now()
     )

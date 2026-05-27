@@ -6,34 +6,28 @@ from sqlalchemy import pool
 from alembic import context
 
 from app.core.config import settings
+from app.db.base import Base
 
 # import models
-from app.db.base import Base
-from app.models import user
-from app.models import note
+from app.models.user import User
+from app.models.note import Note
+from app.models.embedding_chunk import EmbeddingChunk
 
-# Alembic Config
 config = context.config
 
-# -----------------------------------
-# IMPORTANT:
-# Force Alembic to use SAME DB
-# as FastAPI app
-# -----------------------------------
+# use real database URL
 config.set_main_option(
     "sqlalchemy.url",
     settings.DATABASE_URL
 )
 
-# Logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Metadata
 target_metadata = Base.metadata
 
 
-def run_migrations_offline() -> None:
+def run_migrations_offline():
 
     url = config.get_main_option("sqlalchemy.url")
 
@@ -42,14 +36,13 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         compare_type=True,
-        compare_server_default=True,
     )
 
     with context.begin_transaction():
         context.run_migrations()
 
 
-def run_migrations_online() -> None:
+def run_migrations_online():
 
     connectable = engine_from_config(
         config.get_section(config.config_ini_section),
@@ -63,7 +56,6 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
-            compare_server_default=True,
         )
 
         with context.begin_transaction():
