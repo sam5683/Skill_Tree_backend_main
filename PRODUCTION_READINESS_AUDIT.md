@@ -355,7 +355,7 @@ app.add_middleware(
     allow_origins=[
         "http://127.0.0.1:5500",
         "http://localhost:5500",
-        "https://skill-tree-mocha.vercel.app",
+        "https://skill-tree-mu.vercel.app",
         "http://localhost:5173",
         "https://earnest-tarsier-3c57db.netlify.app",
     ],
@@ -383,7 +383,7 @@ Minor: No immediate security breach, but violates CORS best practices
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://skill-tree-mocha.vercel.app",
+        "https://skill-tree-mu.vercel.app",
         "https://earnest-tarsier-3c57db.netlify.app",
         # Remove localhost entries for production
     ],
