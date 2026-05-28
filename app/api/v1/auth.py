@@ -180,7 +180,7 @@ async def google_callback(
     # REDIRECT TO FRONTEND (using environment variable)
     # -----------------------------------
     frontend_url = os.getenv("FRONTEND_URL", "https://skill-tree-mu.vercel.app")
-    redirect_url = f"{frontend_url}/dashboard.html"
+    redirect_url = f"{frontend_url}/dashboard"
     
     response = RedirectResponse(
         url=redirect_url,
