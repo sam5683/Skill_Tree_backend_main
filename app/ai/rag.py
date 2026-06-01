@@ -1,100 +1,95 @@
-from app.ai.retrieval import search_similar_chunks
-
+import hashlib
 from app.ai.client import call_llm
+from app.ai.retrieval import search_similar_chunks
+from app.core.redis import redis_client
 
 
-async def rag_answer(db,query: str,user_id: int):
+async def rag_answer(db, query: str, user_id: int):
 
-    results = await search_similar_chunks(db=db,query=query,user_id=user_id,limit=5)
+    normalized_query = query.strip().lower()
 
-    context = "\n\n".join(
+    cache_key = "rag:" + str(user_id) + ":" + hashlib.md5(normalized_query.encode()).hexdigest()
 
-        [row.chunk_text for row in results]
+    cached_answer = redis_client.get(cache_key)
+
+    if cached_answer:
+        print(f"REDIS HIT: {cache_key}")
+        return {"answer": cached_answer, "sources": []}
+
+    # FIX: Moved outside the IF block so it executes on a true cache miss
+    print(f"REDIS MISS: {cache_key}")
+
+    results = await search_similar_chunks(
+        db=db, query=normalized_query, user_id=user_id, limit=3
     )
+
+    if not results:
+        answer = "I could not find relevant information in your notes."
+        redis_client.setex(cache_key, 300, answer)
+        return {"answer": answer, "sources": []}
+
+    context = "\n\n".join( [row.chunk_text for row in results])
+
     prompt = f"""
 You are Pepa.
 
-An intelligent learning strategist and AI mentor inside SkillTree.
+An AI mentor inside SkillTree.
 
-Your role is NOT to behave like customer support.
-
-Your role is to:
-- help users think clearly
-- explain concepts deeply
-- identify weak understanding
-- connect ideas
-- guide learning efficiently
-- challenge flawed reasoning when necessary
-- act like a sharp technical mentor
-
-You use the user's notes as memory and context.
+Your goal is to help users learn accurately and think clearly.
 
 ========================
-CONTEXT USAGE RULES
+RULES
 ========================
 
-If relevant note context exists:
-- prioritize it heavily
-- reference it naturally
-- connect answers to the user's own notes
+1. Use the provided note context first.
 
-If context is weak or unrelated:
-- answer using general knowledge
-- do NOT pretend information came from notes
+2. If the answer exists in the context:
+   answer directly.
 
-Never hallucinate fake notes.
+3. Do not invent facts.
 
-========================
-BEHAVIOR
-========================
+4. Do not guess.
 
-Be:
-- confident
-- direct
-- intelligent
-- concise
-- insightful
+5. Do not speculate.
 
-Do NOT:
-- sound overly careful
-- over-apologize
-- ask unnecessary clarification questions
-- behave like customer support
-- repeat the user's question
-- use filler phrases
+6. If the answer is not present in the context:
+   use general knowledge only when it is clearly unrelated to the user's notes.
 
-Avoid responses like:
-- "It seems..."
-- "I might suggest..."
-- "Can you explain more?"
-- "I'd be happy to help."
+7. If the question appears to be asking about information stored in notes and the information is missing:
+   say:
 
-Instead:
-- reason directly
-- infer intelligently when safe
-- guide the user clearly
+   "I could not find that information in your notes."
+
+8. Do not confuse similar terms.
+
+Example:
+
+deployment code ≠ development code
+
+backup access code ≠ backup server
+
+secret access code ≠ deployment code
+
+9. Prefer the exact wording found in the notes.
 
 ========================
-LEARNING INTELLIGENCE
+ANSWER STYLE
 ========================
 
-When useful:
-- identify gaps in understanding
-- explain why something matters
-- simplify complexity
-- connect concepts together
-- mention practical applications
-- notice inefficient learning patterns
-- suggest better approaches
+- Short
+- Direct
+- Precise
+- Logical
 
-========================
-FORMAT
-========================
+For factual questions:
 
-- Short paragraphs
-- Clear structure
-- Bullet points when useful
-- No unnecessary verbosity
+Answer in 1-3 sentences.
+
+For conceptual questions:
+
+Explain clearly using simple language.
+
+Do not add unnecessary information.
 
 ========================
 CONTEXT
@@ -103,7 +98,7 @@ CONTEXT
 {context}
 
 ========================
-USER QUESTION
+QUESTION
 ========================
 
 {query}
@@ -112,19 +107,15 @@ USER QUESTION
 ANSWER
 ========================
 """
-    response = await call_llm(prompt)
+    response = await call_llm(prompt=prompt, temperature=0.1)
+
+    if response:
+        redis_client.setex(cache_key, 3600, response)
+        print(f"STORED IN REDIS: {cache_key}")
 
     return {
-
         "answer": response,
-
         "sources": [
-
-            {
-                "note_id": row.note_id,
-                "chunk_text": row.chunk_text
-            }
-
-            for row in results
-        ]
+            {"note_id": row.note_id, "chunk_text": row.chunk_text} for row in results
+        ],
     }

@@ -28,36 +28,74 @@ async def process_note_embeddings(
         return None
 
     """
-    EXTRACT TEXT FROM EXCALIDRAW CONTENT
+    EXTRACT TEXT
+    Supports:
+    - Excalidraw notes
+    - Plain text notes
     """
 
     content = note.content or {}
 
-    elements = content.get("elements", [])
+    combined_text = ""
 
-    text_parts = []
+    # ---------------------------------
+    # Plain text note
+    # ---------------------------------
 
-    for element in elements:
+    if isinstance(content, dict) and "text" in content:
 
-        if element.get("type") != "text":
-            continue
+        combined_text = (
+            content.get("text", "")
+            .strip()
+        )
 
-        text = element.get("text", "").strip()
+    # ---------------------------------
+    # Excalidraw note
+    # ---------------------------------
 
-        if text:
-            text_parts.append(text)
+    else:
 
-    combined_text = "\n".join(text_parts)
+        elements = content.get(
+            "elements",
+            []
+        )
 
-    combined_text = combined_text.strip()
+        text_parts = []
+
+        for element in elements:
+
+            if (
+                element.get("type")
+                != "text"
+            ):
+                continue
+
+            text = (
+                element
+                .get("text", "")
+                .strip()
+            )
+
+            if text:
+                text_parts.append(text)
+
+        combined_text = "\n".join(
+            text_parts
+        )
+
+        combined_text = (
+            combined_text.strip()
+        )
+
+    print(
+        f"EMBEDDING TEXT LENGTH: {len(combined_text)}"
+    )
 
     """
     NO TEXT FOUND
     """
 
     if not combined_text:
-
-        db.commit()
 
         return []
 
@@ -66,6 +104,10 @@ async def process_note_embeddings(
     """
 
     if note.last_embedded_text == combined_text:
+
+        print(
+            "SKIPPING EMBEDDING - NO CHANGES"
+        )
 
         return []
 
@@ -86,13 +128,21 @@ async def process_note_embeddings(
     CHUNK TEXT
     """
 
-    chunks = chunk_text(combined_text)
+    chunks = chunk_text(
+        combined_text
+    )
+
+    print(
+        f"CHUNKS CREATED: {len(chunks)}"
+    )
 
     created_chunks = []
 
     for chunk in chunks:
 
-        embedding = await generate_embedding(chunk)
+        embedding = await generate_embedding(
+            chunk
+        )
 
         row = EmbeddingChunk(
 
@@ -113,9 +163,13 @@ async def process_note_embeddings(
     SAVE EMBEDDING STATE
     """
 
-    note.last_embedded_text = combined_text
+    note.last_embedded_text = (
+        combined_text
+    )
 
-    note.last_embedded_at = datetime.utcnow()
+    note.last_embedded_at = (
+        datetime.utcnow()
+    )
 
     db.commit()
 

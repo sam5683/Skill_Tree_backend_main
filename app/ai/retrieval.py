@@ -1,9 +1,13 @@
 from sqlalchemy import text
-
 from app.ai.embeddings import generate_embedding
 
 
-async def search_similar_chunks(db,query: str,user_id: int,limit: int = 5):
+async def search_similar_chunks(
+    db,
+    query: str,
+    user_id: int,
+    limit: int = 5
+):
 
     query_embedding = await generate_embedding(query)
 
@@ -12,13 +16,10 @@ async def search_similar_chunks(db,query: str,user_id: int,limit: int = 5):
         SELECT
 
             id,
-
             note_id,
-
             chunk_text,
 
             embedding <=> CAST(:embedding AS vector)
-
             AS distance
 
         FROM embedding_chunks
@@ -44,14 +45,14 @@ async def search_similar_chunks(db,query: str,user_id: int,limit: int = 5):
 
     rows = results.fetchall()
 
-    # -----------------------------
-    # Filter weak matches
-    # -----------------------------
     filtered_rows = [
 
         row for row in rows
 
-        if row.distance < 0.7
+        if row.distance < 0.45
     ]
+
+    if len(filtered_rows) == 0:
+        return []
 
     return filtered_rows

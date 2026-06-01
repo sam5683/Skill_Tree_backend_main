@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-
+from app.core.rate_limit import check_rate_limit
 from app.db.session import get_db
 
 from app.core.security import get_current_user
@@ -27,7 +27,8 @@ async def ask_rag(
 
     current_user: User = Depends(get_current_user)
 ):
-
+    
+    await check_rate_limit(current_user.id)
     response = await rag_answer(
 
         db=db,
@@ -38,3 +39,4 @@ async def ask_rag(
     )
 
     return response
+

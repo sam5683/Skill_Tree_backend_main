@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
+    REDIS_URL: str | None = None
+
     ENVIRONMENT: str 
 
     class Config:
