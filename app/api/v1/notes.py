@@ -14,6 +14,7 @@ from app.services.ocr_service import extract_text_from_image
 from app.services.ai_service import improve_note_content
 from fastapi import BackgroundTasks
 from app.services.retrieval_service import (process_note_embeddings)
+from app.tasks.embedding_tasks import process_embedding_task
 
 router = APIRouter(
     prefix="/notes",
@@ -341,6 +342,11 @@ async def update_note(
     db.commit()
 
     db.refresh(note)
+
+    process_embedding_task.delay(
+        note.id,
+        current_user.id
+    )
 
     return note
 # -------------------- DELETE --------------------

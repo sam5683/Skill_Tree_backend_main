@@ -24,9 +24,52 @@ async def rag_answer(db, query: str, user_id: int):
     )
 
     if not results:
-        answer = "I could not find relevant information in your notes."
-        redis_client.setex(cache_key, 300, answer)
-        return {"answer": answer, "sources": []}
+
+        prompt = f"""
+You are Pepa.
+
+An AI mentor inside SkillTree.
+
+Answer using your general knowledge.
+
+Be:
+- Direct
+- Accurate
+- Logical
+- Concise
+
+If you are uncertain, say so.
+
+QUESTION:
+
+{query}
+
+ANSWER:
+"""
+
+        answer = await call_llm(
+            prompt=prompt,
+            temperature=0.3
+        )
+
+        redis_client.setex(
+            cache_key,
+            300,
+            answer
+        )
+
+        return {
+            "answer": answer,
+            "sources": []
+        }
+    
+    # ========================================
+    # NEW CODE: MEASURING VECTOR DISTANCE
+    # ========================================
+    best_distance = results[0].distance
+
+    print(f"BEST DISTANCE: {best_distance}")
+    # ========================================
 
     context = "\n\n".join( [row.chunk_text for row in results])
 
